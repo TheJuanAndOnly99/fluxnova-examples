@@ -21,7 +21,7 @@
         <java.version>21</java.version>
         <fluxnova.version>1.0.0</fluxnova.version>
         <spring-ai.version>1.1.2</spring-ai.version>
-        <graalvm.version>23.0.5</graalvm.version>
+        <nashorn.version>15.4</nashorn.version>
     </properties>
 
     <dependencyManagement>
@@ -61,16 +61,10 @@
             <groupId>org.finos.fluxnova.bpm.springboot</groupId>
             <artifactId>fluxnova-bpm-spring-boot-starter-webapp</artifactId>
         </dependency>
-        <!-- JavaScript engine for scriptFormat="javascript" script tasks (GraalJS, UPL-1.0) -->
         <dependency>
-            <groupId>org.graalvm.js</groupId>
-            <artifactId>js</artifactId>
-            <version>${graalvm.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.graalvm.js</groupId>
-            <artifactId>js-scriptengine</artifactId>
-            <version>${graalvm.version}</version>
+            <groupId>org.openjdk.nashorn</groupId>
+            <artifactId>nashorn-core</artifactId>
+            <version>${nashorn.version}</version>
         </dependency>
         <dependency>
             <groupId>org.finos.fluxnova.bpm.springboot</groupId>

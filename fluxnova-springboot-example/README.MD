@@ -66,9 +66,8 @@ By default, the application uses an H2 database. All Spring Boot configurations 
 3. **Database Configuration:**
 
    - By default, the Spring Boot application uses an H2 database.
-   - It also supports PostgreSQL databases.
-   - MySQL is not bundled: MySQL Connector/J is GPL-licensed, which is not allowed in Fluxnova releases. To use MySQL, build your own image that adds the driver.
-   - To connect to PostgreSQL, pass the following environment variables when starting the container:
+   - It also supports PostgreSQL and MySQL databases.
+   - To connect to PostgreSQL or MySQL, pass the following environment variables when starting the container:
 
      ```
      DB_DRIVER=<db-driver>

@@ -53,10 +53,9 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-actuator</artifactId>
     </dependency>
-    <!-- Spring Data JDBC (Apache-2.0) instead of Spring Data JPA, which pulls in Hibernate ORM 6.x (LGPL-2.1) -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-data-jdbc</artifactId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
     </dependency>
     <dependency>
       <groupId>com.h2database</groupId>
@@ -73,7 +72,7 @@
     </dependency>
     <dependency>
       <groupId>org.finos.fluxnova.spin</groupId>
-      <artifactId>fluxnova-spin-dataformat-xml-dom-jakarta</artifactId>
+      <artifactId>fluxnova-spin-dataformat-xml-dom</artifactId>
     </dependency>
     <dependency>
       <groupId>org.finos.fluxnova.bpm</groupId>
@@ -115,7 +114,7 @@
     <dependency>
       <groupId>org.json</groupId>
       <artifactId>json</artifactId>
-      <version>20250517</version>
+      <version>20170516</version>
     </dependency>
     <dependency>
       <groupId>commons-codec</groupId>
@@ -128,22 +127,25 @@
       <version>2.1.4.RELEASE</version>
       <scope>test</scope>
     </dependency>
-    <!-- Jakarta XML Binding / Activation (versions managed by spring-boot-dependencies) -->
     <dependency>
-      <groupId>jakarta.xml.bind</groupId>
-      <artifactId>jakarta.xml.bind-api</artifactId>
+      <groupId>javax.xml.bind</groupId>
+      <artifactId>jaxb-api</artifactId>
+      <version>2.3.1</version>
     </dependency>
     <dependency>
       <groupId>com.sun.xml.bind</groupId>
       <artifactId>jaxb-core</artifactId>
+      <version>2.3.0.1</version>
     </dependency>
     <dependency>
       <groupId>com.sun.xml.bind</groupId>
       <artifactId>jaxb-impl</artifactId>
+      <version>2.3.2</version>
     </dependency>
     <dependency>
-      <groupId>jakarta.activation</groupId>
-      <artifactId>jakarta.activation-api</artifactId>
+      <groupId>javax.activation</groupId>
+      <artifactId>activation</artifactId>
+      <version>1.1.1</version>
     </dependency>
     <dependency>
       <groupId>org.graalvm.sdk</groupId>

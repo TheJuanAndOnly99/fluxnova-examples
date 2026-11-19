@@ -52,10 +52,10 @@ jobs:
           # org.finos.fluxnova.ai.mcp:mcp-fluxnova-extension:0.1.0 is not yet on Maven Central;
           # it is vendored in the repo (see ai/fluxnova-mcp-ai-demo/dependency/README.md) and
           # installed the same way as ai/fluxnova-mcp-ai-demo/fluxnova-service/Dockerfile.
-          # The POM embedded in the jar is used so its transitive dependencies are scanned too.
+          # The vendored POM is the jar's embedded POM plus a <licenses> declaration (Apache-2.0),
+          # so the extension's license and its transitive dependencies are both scanned.
           JAR=ai/fluxnova-mcp-ai-demo/dependency/mcp-fluxnova-extension-0.1.0.jar
-          POM="$RUNNER_TEMP/mcp-fluxnova-extension-0.1.0.pom"
-          unzip -p "$JAR" META-INF/maven/org.finos.fluxnova.ai.mcp/mcp-fluxnova-extension/pom.xml > "$POM"
+          POM=ai/fluxnova-mcp-ai-demo/dependency/mcp-fluxnova-extension-0.1.0.pom
           mvn -B -q org.apache.maven.plugins:maven-install-plugin:3.1.4:install-file \
             -Dfile="$JAR" \
             -DpomFile="$POM"
@@ -65,8 +65,6 @@ jobs:
         run: |
           # add-third-party (not aggregate-add-third-party): every project here is a single
           # jar-packaged module, and the aggregate goal produces no report for those.
-          # useMissingFile: a project's src/license/THIRD-PARTY.properties (if present) declares
-          # licenses for dependencies whose POM has none.
           for project in $MAVEN_PROJECTS; do
             echo "::group::Generate report: $project"
             mvn -B -f "$project/pom.xml" \
@@ -74,7 +72,6 @@ jobs:
               -Dlicense.includedScopes=compile,runtime \
               -Dlicense.excludedScopes=test,provided,system \
               -Dlicense.sortArtifactByName=true \
-              -Dlicense.useMissingFile=true \
               -Dlicense.outputDirectory=target \
               -Dlicense.thirdPartyFilename=THIRD-PARTY.txt
             echo "::endgroup::"

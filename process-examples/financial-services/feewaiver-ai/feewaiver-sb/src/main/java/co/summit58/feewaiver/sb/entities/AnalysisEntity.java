@@ -1,31 +1,34 @@
 package co.summit58.feewaiver.sb.entities;
 
-import org.springframework.data.annotation.Id;
-import org.springframework.data.relational.core.mapping.Table;
+import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
-/**
- * Spring Data JDBC entity. Column types and constraints are defined in src/main/resources/schema.sql.
- * The table name is derived (ANALYSIS_ENTITY): Spring Data JDBC quotes identifiers, so an explicit
- * lower-case name would not match the unquoted table created by schema.sql on H2.
- */
-@Table
+@Entity
+@Table(name = "analysis_entity")
 public class AnalysisEntity {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Lob
+    @Column(nullable = false)
     private String requestText;
 
+    @Column(nullable = false)
     private Integer priorFeeWaiverCount;
 
+    @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal feeAmount;
 
+    @Column(nullable = false)
     private Boolean vulnerableCustomer;
 
+    @Column(nullable = false)
     private Boolean regulatorySensitivity;
 
+    @Lob
     private String aiCaseSummary;
 
     private String aiIntent;
@@ -36,38 +39,57 @@ public class AnalysisEntity {
 
     private String aiRecommendedAction;
 
+    @Lob
     private String aiReasoningSummary;
 
+    @Lob
+    @Column(nullable = false)
     private String policyFlagsJson;
 
+    @Column(nullable = false)
     private Boolean requiresHumanReview;
 
+    @Column(nullable = false)
     private String policyRoute;
 
+    @Column(nullable = false)
     private String finalAction;
 
+    @Lob
+    @Column(nullable = false)
     private String triggeredPoliciesJson;
 
+    @Lob
     private String policyExplanation;
 
+    @Column(nullable = false)
     private OffsetDateTime createdAt;
 
+    @Column
     private String reviewStatus;
 
+    @Column
     private String reviewDecision;
 
+    @Column
     private String reviewer;
 
+    @Lob
     private String reviewNotes;
 
+    @Column
     private OffsetDateTime reviewedAt;
 
+    @Column
     private String resolutionStatus;
 
+    @Column
     private Boolean drlEscalate;
 
+    @Column
     private Boolean drlRequiresReview;
 
+    @Lob
     private String drlReason;
 
     public Long getId() { return id; }

@@ -116,6 +116,12 @@
     </dependency>
 
     <dependency>
+      <groupId>com.mysql</groupId>
+      <artifactId>mysql-connector-j</artifactId>
+      <version>9.5.0</version>
+    </dependency>
+
+    <dependency>
       <groupId>org.finos.fluxnova.bpm</groupId>
       <artifactId>fluxnova-engine-rest-core-jakarta</artifactId>
       <version>${fluxnova.version}</version>
