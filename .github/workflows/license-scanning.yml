@@ -1,0 +1,251 @@
+name: License Scanning
+
+on:
+  schedule:
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      maven-projects:
+        description: "Space-separated Maven project directories to scan (default: all)"
+        type: string
+        required: false
+        default: ''
+      npm:
+        description: "Run the npm scan ('true'/'false')"
+        type: string
+        required: false
+        default: 'true'
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  scan-maven:
+    name: Scan Maven Licenses
+    runs-on: ubuntu-latest
+
+    env:
+      # This repository has no root pom.xml; each example is an independent Maven project.
+      # A caller (e.g. the release gate) may narrow this to the projects it actually releases.
+      MAVEN_PROJECTS: ${{ inputs.maven-projects || 'fluxnova-springboot-example ai/fluxnova-mcp-ai-demo/fluxnova-service ai/fluxnova-mcp-ai-demo/mcp-client process-examples/financial-services/abac-poc process-examples/financial-services/feewaiver-ai/feewaiver-sb' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: 'temurin'
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-license-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-license-
+            ${{ runner.os }}-maven-
+
+      - name: Install vendored mcp-fluxnova-extension
+        shell: bash
+        run: |
+          # org.finos.fluxnova.ai.mcp:mcp-fluxnova-extension:0.1.0 is not yet on Maven Central;
+          # it is vendored in the repo (see ai/fluxnova-mcp-ai-demo/dependency/README.md) and
+          # installed the same way as ai/fluxnova-mcp-ai-demo/fluxnova-service/Dockerfile.
+          # The vendored POM is the jar's embedded POM plus a <licenses> declaration (Apache-2.0),
+          # so the extension's license and its transitive dependencies are both scanned.
+          JAR=ai/fluxnova-mcp-ai-demo/dependency/mcp-fluxnova-extension-0.1.0.jar
+          POM=ai/fluxnova-mcp-ai-demo/dependency/mcp-fluxnova-extension-0.1.0.pom
+          mvn -B -q org.apache.maven.plugins:maven-install-plugin:3.1.4:install-file \
+            -Dfile="$JAR" \
+            -DpomFile="$POM"
+
+      - name: Generate third-party license reports
+        shell: bash
+        run: |
+          # add-third-party (not aggregate-add-third-party): every project here is a single
+          # jar-packaged module, and the aggregate goal produces no report for those.
+          for project in $MAVEN_PROJECTS; do
+            echo "::group::Generate report: $project"
+            mvn -B -f "$project/pom.xml" \
+              org.codehaus.mojo:license-maven-plugin:2.4.0:add-third-party \
+              -Dlicense.includedScopes=compile,runtime \
+              -Dlicense.excludedScopes=test,provided,system \
+              -Dlicense.sortArtifactByName=true \
+              -Dlicense.outputDirectory=target \
+              -Dlicense.thirdPartyFilename=THIRD-PARTY.txt
+            echo "::endgroup::"
+          done
+
+      - name: Validate licenses against Fluxnova policy (FINOS Category A + MPL-2.0)
+        shell: bash
+        run: |
+          # FINOS Category A approved license patterns (case-insensitive grep -E patterns)
+          # Reference: https://community.finos.org/docs/governance/software-projects/license-categories/
+          # Category A: Apache-2.0, Apache-1.1, MIT, ISC, BSD-2-Clause, BSD-3-Clause, 0BSD, Unlicense,
+          #             Python-2.0, PostgreSQL, BSL-1.0, W3C, WTFPL, Xnet, NCSA, ZPL-2.0, zlib
+          # EPL (Eclipse Public License) 1.0 and 2.0: Approved by FINOS
+          # MPL-2.0: allowed by Fluxnova policy for unmodified dependencies
+          # Dual-licensed dependencies pass if the first listed option is allowed (e.g., EPL/LGPL passes on EPL)
+          ALLOWED_PATTERN='Apache|MIT|ISC|BSD|0BSD|Unlicense|Python-2|PostgreSQL|BSL-1|Boost Software License|W3C|WTFPL|Xnet|NCSA|ZPL-2|zlib|Public Domain|EPL|Eclipse Public License|Eclipse Distribution License|EDL|BlueOak-1|CC0-1|CC-BY-4|MPL-2\.0|MPL 2\.0|Mozilla Public License,? (Version |v\.? ?)?2\.0'
+
+          # Per-package exceptions (approved artifacts not matching global allow-list)
+          # Format: "groupId:artifactId" entries, checked against artifact string
+          APPROVED_EXCEPTIONS=(
+            # UPL-1.0: Approved exception for GraalVM JavaScript engine
+            # Copyright (c) 2019, Oracle and/or its affiliates. Licensed under UPL-1.0.
+            "org.graalvm.js:js-scriptengine"
+            # EDL-1.0: Eclipse Distribution License is BSD-3-Clause equivalent
+            # Copyright (c) 2017, 2018 Oracle and/or its affiliates. Licensed under EDL-1.0.
+            # See: https://github.com/jakartaee/jaxb-api
+            "jakarta.xml.bind:jakarta.xml.bind-api"
+            # UPL-1.0: Approved exception for the rest of the GraalVM JavaScript runtime
+            # (pulled in by org.graalvm.js:js). UPL-1.0 is a permissive, Apache-2.0-compatible license.
+            # Copyright (c) Oracle and/or its affiliates. Licensed under UPL-1.0.
+            "org.graalvm.sdk:graal-sdk"
+            "org.graalvm.regex:regex"
+            "org.graalvm.truffle:truffle-api"
+            # Unicode/ICU License: Approved exception for ICU4J (pulled in by org.graalvm.js:js).
+            # Permissive license; Copyright (c) Unicode, Inc. and others.
+            "com.ibm.icu:icu4j"
+          )
+
+          TOTAL_FAILED=0
+          FAILED_PROJECTS=()
+
+          for project in $MAVEN_PROJECTS; do
+            THIRD_PARTY_FILE="$project/target/THIRD-PARTY.txt"
+            echo ""
+            echo "=== $project ==="
+
+            if [[ ! -f "$THIRD_PARTY_FILE" ]]; then
+              echo "ERROR: Third-party license report not generated for $project"
+              TOTAL_FAILED=$((TOTAL_FAILED + 1))
+              FAILED_PROJECTS+=("$project (no report)")
+              continue
+            fi
+
+            echo "::group::Third-party Maven licenses: $project"
+            cat "$THIRD_PARTY_FILE"
+            echo "::endgroup::"
+
+            FAILED=0
+            CHECKED=0
+
+            while IFS= read -r line; do
+              [[ -z "$line" ]] && continue
+              [[ "$line" == *"Lists of"* ]] && continue
+
+              trimmed="${line#"${line%%[![:space:]]*}"}"
+              if [[ "$trimmed" =~ ^\(([^\)]+)\) ]]; then
+                LICENSE="${BASH_REMATCH[1]}"
+                ARTIFACT="${trimmed#*) }"
+                CHECKED=$((CHECKED + 1))
+
+                # Check if license matches allowed pattern (word-boundary match, reject BSD-4-Clause)
+                if echo "$LICENSE" | grep -qiwE "$ALLOWED_PATTERN" && \
+                   ! echo "$LICENSE" | grep -qiE 'BSD-4|4-Clause|Original BSD'; then
+                  continue
+                fi
+
+                # Check per-package exceptions
+                IS_EXCEPTION=false
+                for exception in "${APPROVED_EXCEPTIONS[@]}"; do
+                  if [[ "$ARTIFACT" == *"$exception"* ]]; then
+                    IS_EXCEPTION=true
+                    echo "APPROVED EXCEPTION: $LICENSE -> $ARTIFACT"
+                    break
+                  fi
+                done
+
+                if [[ "$IS_EXCEPTION" == "false" ]]; then
+                  echo "::error title=Disallowed license ($project)::$LICENSE -> $ARTIFACT"
+                  echo "DISALLOWED: $LICENSE -> $ARTIFACT"
+                  FAILED=$((FAILED + 1))
+                fi
+              fi
+            done < "$THIRD_PARTY_FILE"
+
+            echo "Checked: $CHECKED dependencies, disallowed: $FAILED"
+
+            if [[ $CHECKED -eq 0 ]]; then
+              echo "ERROR: No dependencies checked for $project"
+              FAILED=$((FAILED + 1))
+            fi
+
+            if [[ $FAILED -gt 0 ]]; then
+              TOTAL_FAILED=$((TOTAL_FAILED + FAILED))
+              FAILED_PROJECTS+=("$project ($FAILED)")
+            fi
+          done
+
+          echo ""
+          echo "=== Summary ==="
+          if [[ $TOTAL_FAILED -gt 0 ]]; then
+            echo "ERROR: Found $TOTAL_FAILED disallowed dependencies in:"
+            printf '  - %s\n' "${FAILED_PROJECTS[@]}"
+            echo "Please review and either:"
+            echo "  1. Replace the dependency with an alternative that has an approved license"
+            echo "  2. Request an exception via FINOS governance if the license is acceptable"
+            exit 1
+          fi
+
+          echo "All Maven licenses are compliant with the Fluxnova license policy."
+
+  scan-npm:
+    name: Scan npm Licenses
+    # Skipped only when a caller passes npm: 'false' (inputs is empty for non-workflow_call events).
+    if: ${{ inputs.npm != 'false' }}
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: process-examples/financial-services/feewaiver-ai/feewaiver-ui
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install production dependencies
+        run: npm ci --omit=dev --ignore-scripts
+
+      - name: Install license-checker
+        run: npm install -g license-checker-rseidelsohn@5.0.1
+
+      - name: Get package info
+        id: pkg
+        run: |
+          PKG_NAME=$(node -p "require('./package.json').name || 'unknown'")
+          PKG_VERSION=$(node -p "require('./package.json').version || '0.0.0'")
+          echo "exclude=${PKG_NAME}@${PKG_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Run license scan
+        shell: bash
+        env:
+          ROOT_PACKAGE: ${{ steps.pkg.outputs.exclude }}
+        run: |
+          ALLOWED_LICENSES='Apache-2.0;Apache-1.1;MIT;ISC;BSD-2-Clause;BSD-3-Clause;0BSD;Unlicense;Python-2.0;PostgreSQL;BSL-1.0;W3C;WTFPL;Xnet;NCSA;ZPL-2.0;Zlib;EPL-1.0;EPL-2.0;BlueOak-1.0.0;CC0-1.0;CC-BY-4.0;OFL-1.1;MPL-2.0'
+
+          # bpmn.io packages: verify MIT permission grant present, then build exclusion list
+          BPMN_PKGS="bpmn-js cmmn-js dmn-js dmn-js-decision-table dmn-js-drd dmn-js-literal-expression dmn-js-properties-panel dmn-js-shared camunda-dmn-js @bpmn-io/dmn-migrate @bpmn-io/form-js @bpmn-io/form-js-editor @bpmn-io/form-js-viewer @bpmn-io/form-js-playground @bpmn-io/form-js-carbon-styles"
+          EXCLUSIONS="$ROOT_PACKAGE"
+          for pkg in $BPMN_PKGS; do
+            [[ -d "node_modules/$pkg" ]] || continue
+            LIC=$(tr '[:upper:]' '[:lower:]' < "node_modules/$pkg/LICENSE" | tr -s '[:space:]' ' ')
+            echo "$LIC" | grep -q "permission is hereby granted, free of charge" && echo "$LIC" | grep -q "use, copy, modify, merge, publish, distribute" || { echo "ERROR: $pkg missing MIT permission grant"; exit 1; }
+            EXCLUSIONS="$EXCLUSIONS;$pkg@$(node -p "require('./node_modules/$pkg/package.json').version")"
+          done
+
+          license-checker-rseidelsohn --production --excludePrivatePackages --onlyAllow "$ALLOWED_LICENSES" --excludePackages "$EXCLUSIONS"
