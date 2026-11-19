@@ -53,9 +53,10 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-actuator</artifactId>
     </dependency>
+    <!-- Spring Data JDBC (Apache-2.0) instead of Spring Data JPA, which pulls in Hibernate ORM 6.x (LGPL-2.1) -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-data-jpa</artifactId>
+      <artifactId>spring-boot-starter-data-jdbc</artifactId>
     </dependency>
     <dependency>
       <groupId>com.h2database</groupId>
@@ -72,7 +73,7 @@
     </dependency>
     <dependency>
       <groupId>org.finos.fluxnova.spin</groupId>
-      <artifactId>fluxnova-spin-dataformat-xml-dom</artifactId>
+      <artifactId>fluxnova-spin-dataformat-xml-dom-jakarta</artifactId>
     </dependency>
     <dependency>
       <groupId>org.finos.fluxnova.bpm</groupId>

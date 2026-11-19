@@ -108,6 +108,9 @@ jobs:
             "org.graalvm.sdk:graal-sdk"
             "org.graalvm.regex:regex"
             "org.graalvm.truffle:truffle-api"
+            # Unicode/ICU License: Approved exception for ICU4J (pulled in by org.graalvm.js:js).
+            # Permissive license; Copyright (c) Unicode, Inc. and others.
+            "com.ibm.icu:icu4j"
           )
 
           TOTAL_FAILED=0
