@@ -16,12 +16,16 @@ permissions:
 
 jobs:
   # Release gate: release/** builds (the only ones that publish the Docker image) must pass
-  # the license scan first. Pushes to main are already scanned by license-scanning.yml itself,
-  # so the reusable call is skipped there and main builds are not blocked.
+  # the license scan first. Only the released project is scanned here; the full repository is
+  # scanned by license-scanning.yml itself on PRs, pushes to main and the weekly schedule, so the
+  # reusable call is skipped on main and main builds are not blocked.
   license-check:
     name: License Check
     if: startsWith(github.ref, 'refs/heads/release/')
     uses: ./.github/workflows/license-scanning.yml
+    with:
+      maven-projects: fluxnova-springboot-example
+      npm: 'false'
 
   build-and-publish:
     needs: license-check

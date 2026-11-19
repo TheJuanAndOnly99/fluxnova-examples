@@ -5,6 +5,17 @@ on:
     - cron: '0 8 * * 1'
   workflow_dispatch:
   workflow_call:
+    inputs:
+      maven-projects:
+        description: "Space-separated Maven project directories to scan (default: all)"
+        type: string
+        required: false
+        default: ''
+      npm:
+        description: "Run the npm scan ('true'/'false')"
+        type: string
+        required: false
+        default: 'true'
   push:
     branches:
       - main
@@ -20,12 +31,8 @@ jobs:
 
     env:
       # This repository has no root pom.xml; each example is an independent Maven project.
-      MAVEN_PROJECTS: >-
-        fluxnova-springboot-example
-        ai/fluxnova-mcp-ai-demo/fluxnova-service
-        ai/fluxnova-mcp-ai-demo/mcp-client
-        process-examples/financial-services/abac-poc
-        process-examples/financial-services/feewaiver-ai/feewaiver-sb
+      # A caller (e.g. the release gate) may narrow this to the projects it actually releases.
+      MAVEN_PROJECTS: ${{ inputs.maven-projects || 'fluxnova-springboot-example ai/fluxnova-mcp-ai-demo/fluxnova-service ai/fluxnova-mcp-ai-demo/mcp-client process-examples/financial-services/abac-poc process-examples/financial-services/feewaiver-ai/feewaiver-sb' }}
 
     steps:
       - name: Checkout
@@ -194,6 +201,8 @@ jobs:
 
   scan-npm:
     name: Scan npm Licenses
+    # Skipped only when a caller passes npm: 'false' (inputs is empty for non-workflow_call events).
+    if: ${{ inputs.npm != 'false' }}
     runs-on: ubuntu-latest
 
     defaults:
