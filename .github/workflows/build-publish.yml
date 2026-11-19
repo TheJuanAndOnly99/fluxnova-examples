@@ -15,7 +15,18 @@ permissions:
   contents: read
 
 jobs:
+  # Release gate: release/** builds (the only ones that publish the Docker image) must pass
+  # the license scan first. Pushes to main are already scanned by license-scanning.yml itself,
+  # so the reusable call is skipped there and main builds are not blocked.
+  license-check:
+    name: License Check
+    if: startsWith(github.ref, 'refs/heads/release/')
+    uses: ./.github/workflows/license-scanning.yml
+
   build-and-publish:
+    needs: license-check
+    # Run when license-check succeeded (release/**) or was skipped (main); never after a failure.
+    if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
 
     steps:
