@@ -65,6 +65,8 @@ jobs:
         run: |
           # add-third-party (not aggregate-add-third-party): every project here is a single
           # jar-packaged module, and the aggregate goal produces no report for those.
+          # useMissingFile: a project's src/license/THIRD-PARTY.properties (if present) declares
+          # licenses for dependencies whose POM has none.
           for project in $MAVEN_PROJECTS; do
             echo "::group::Generate report: $project"
             mvn -B -f "$project/pom.xml" \
@@ -72,6 +74,7 @@ jobs:
               -Dlicense.includedScopes=compile,runtime \
               -Dlicense.excludedScopes=test,provided,system \
               -Dlicense.sortArtifactByName=true \
+              -Dlicense.useMissingFile=true \
               -Dlicense.outputDirectory=target \
               -Dlicense.thirdPartyFilename=THIRD-PARTY.txt
             echo "::endgroup::"
@@ -99,6 +102,12 @@ jobs:
             # Copyright (c) 2017, 2018 Oracle and/or its affiliates. Licensed under EDL-1.0.
             # See: https://github.com/jakartaee/jaxb-api
             "jakarta.xml.bind:jakarta.xml.bind-api"
+            # UPL-1.0: Approved exception for the rest of the GraalVM JavaScript runtime
+            # (pulled in by org.graalvm.js:js). UPL-1.0 is a permissive, Apache-2.0-compatible license.
+            # Copyright (c) Oracle and/or its affiliates. Licensed under UPL-1.0.
+            "org.graalvm.sdk:graal-sdk"
+            "org.graalvm.regex:regex"
+            "org.graalvm.truffle:truffle-api"
           )
 
           TOTAL_FAILED=0
